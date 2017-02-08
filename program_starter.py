@@ -33,6 +33,7 @@ class ProgramStarter:
         """
         start program(s), if programs is empty, start all the program
         """
+        #get programs the start_programs depend on
         programs = self._get_depend_programs( start_programs )
         #if start all the programs
         if not start_programs:
@@ -40,7 +41,7 @@ class ProgramStarter:
 
         pending_programs = self._get_no_depend_programs( programs )
         started_programs = []
-        
+
         while pending_programs:
             program = pending_programs.pop()
             if recursive or program in start_programs:
@@ -131,7 +132,9 @@ class ProgramStarter:
 
     def _execute_program_script( self, program, script_key ):
         if script_key in self.config["programs"][program]:
+            os.environ['PROGRAM']=program
             script = self.config["programs"][program][script_key]
+            script = eval_with_env( script )
             logging.debug( "start to execute:%s" % script )
             return os.system( script ) == 0
         return True
@@ -176,6 +179,57 @@ class ProgramStarter:
         logging.error( "fail to load the configure file" )
         return None
 
+def eval_with_env( s ):
+    n = len( s )
+    i = 0
+    r = ""
+    while i < n:
+        if s[i] == '\\': #escape char \
+            i = i + 1
+            if i < n:
+                r = r + s[i]
+                i = i + 1
+        elif s[i] == '$' and i + 1 < n and s[i+1] == '{': #if find starter of env var
+            j = s.find( '}', i + 1 )
+            #if end of env is found
+            if j == -1:
+                r = r + s[i:]
+                i = n
+            else:
+                #check if default value is provided
+                env = s[i+2:j]
+                pos = env.find( ":" )
+                if pos != -1:
+                    def_value = env[pos+1:].strip()
+                    env = env[0:pos].strip()
+                #if environment variable exists
+                if env in os.environ:
+                    r = r + os.environ[env]
+                elif def_value: # set to default value if environment variable does not exist
+                    r = r + def_value
+                    def_value = ""
+                i = j + 1
+        else: # for other case
+            r = r + s[i]
+            i = i + 1
+    return r
+
+def load_env_file( fileName ):
+    logging.info( "load environment variable file:%s" % fileName )
+    try:
+        with open( fileName ) as f:
+            for line in f:
+                line = line.strip()
+                if len( line ) > 0:
+                    if line[0] == '#':
+                        continue
+                    pos = line.find( '=')
+                    if pos != -1:
+                        name = line[0:pos].strip()
+                        value = line[pos+1:].strip()
+                        os.environ[name] = value
+    except Exception as ex:
+        logging.error( "get exception when loading environment file %s:%r" %( fileName, ex ) )
 if __name__ == "__main__":
     logging.basicConfig( filename="program_starter.log", level=logging.DEBUG )
     parser = argparse.ArgumentParser(description='start/stop a group of depend program from configuration file')
@@ -183,7 +237,10 @@ if __name__ == "__main__":
     parser.add_argument( "command", choices=["start","stop"], help="start/stop a group of programs" )
     parser.add_argument( "program", nargs='*', help="program to be started/stopped" )
     parser.add_argument( "-r", "--recursive", action='store_true', default=False, help = "recursively start/stop programs" )
+    parser.add_argument( "-e", "--env_file", help = "environment file" )
     args = parser.parse_args()
+    if args.env_file:
+        load_env_file( args.env_file )
 
     starter = ProgramStarter( args.config_file )
     if args.command == 'start':

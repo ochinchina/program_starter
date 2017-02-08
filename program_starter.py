@@ -34,6 +34,10 @@ class ProgramStarter:
         start program(s), if programs is empty, start all the program
         """
         programs = self._get_depend_programs( start_programs )
+        #if start all the programs
+        if not start_programs:
+            start_programs = programs
+
         pending_programs = self._get_no_depend_programs( programs )
         started_programs = []
         
@@ -51,6 +55,9 @@ class ProgramStarter:
         stop programs, if the programs is empty, stop all the programs
         """
         programs = self._get_programs_depend_on( stop_programs )
+
+        if not stop_programs:
+            stop_programs = programs
         programs.reverse()
         for program in programs:
             if recursive or program in stop_programs:
@@ -61,7 +68,7 @@ class ProgramStarter:
         get all the depend programs. These depend programs should be started before.
         """
         if not programs:
-            pending_programs = self._get_all_programs()
+            return self._get_all_programs()
         else:
             pending_programs = []
             pending_programs.extend( programs )
@@ -160,11 +167,13 @@ class ProgramStarter:
         load the config from the configure file.
         The configure file can be in json or yaml file
         """
+        logging.debug( "try to load configure file:%s" % config_file )
         with open( config_file ) as fp:
             if self._is_yaml_file( config_file ):
                 return yaml.safe_load( fp )
             else:
                 return json.load( fp )
+        logging.error( "fail to load the configure file" )
         return None
 
 if __name__ == "__main__":

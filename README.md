@@ -84,6 +84,67 @@ $ ./program_starter.py -f <configuration_file> stop db
 ```
 only stop the program db, the program web will not be stopped.
 
+### Enviroment variables in program script
+
+Some environment variables can be put in the program script( pre-start, start, post-start, pre-stop, stop and pos-start script). The environment variable is in format:
+
+```shell
+${ENV_VAR:def_value}
+```
+
+So if java will be used in the program script, we can simply put the environemt variable JAVA_HOME in the script like:
+```shell
+${JAVA_HOME:/your/default/java/home}
+```
+if the environment variable JAVA_HOME is set, the above string will be replaced with the value of JAVA_HOME enviornment variable. If JAV_HOME is not set, the above string will be "/your/default/java/home".
+
+#### Environment variable file
+The environment variable can be set in the shell or can be loaded from a environment file by command line argument "-e" or "--env_file". One environment variable should be put in one line and line start with '#' will be regarded as comments and will be ignored.
+
+```text
+# java home
+JAVA_HOME=/opt/jdk1.8
+ANT_HOME=/opt/ant1.9.1
+```
+
+#### The special environment variable ${PROGRAM}
+
+There is a sepcial environment variable named ${PROGRAM}, this envirment variable is not set by shell or loaded from the environment file. It is set by the program itself. Its value is the name of current start/stop program.
+
+So the configure file:
+```yaml
+programs:
+  db:
+    start: 'docker run --name db-1 -d db'
+    post_start: 'sleep 10'
+    stop: 'docker stop db-1'
+    post_stop: 'docker rm db-1'
+  web:
+    start: 'docker run --name web-1 -d web'
+    stop: 'docker stop web-1'
+    post_stop: 'docker rm web-1'
+    depends_on:
+      - db
+```
+
+can be replaced with:
+
+```yaml
+programs:
+  db:
+    start: 'docker run --name ${PROGRAM}-1 -d ${PROGRAM}'
+    post_start: 'sleep 10'
+    stop: 'docker stop ${PROGRAM}-1'
+    post_stop: 'docker rm ${PROGRAM}-1'
+  web:
+    start: 'docker run --name ${PROGRAM}-1 -d ${PROGRAM}'
+    stop: 'docker stop ${PROGRAM}-1'
+    post_stop: 'docker rm ${PROGRAM}-1'
+    depends_on:
+      - db
+```
+in the program db, the environment variable ${PROGRAM} stands for the "db" and in the web program, the ${PROGRAM} stands for the "web".
+
 ### MIT License
 Copyright 2017 Steven Ou
 

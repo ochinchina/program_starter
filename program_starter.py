@@ -16,6 +16,7 @@ class ProgramStarter:
         else:
             self.config = config
         self._update_depends_info()
+        self._update_env()
 
     def _update_depends_info( self ):
         """
@@ -28,6 +29,14 @@ class ProgramStarter:
             if 'depends_on' in self.config['programs'][program]:
                 for depend in self.config['programs'][program]['depends_on']:
                     self.config['programs'][depend]['depend_by'].append( program )
+    def _update_env( self ):
+        """
+        update the environment variable setting in the configuration file
+        """
+        if "envs" in self.config:
+            envs = self.config["envs"]
+            if isinstance( envs, dict ):
+                os.environ.update( envs )
 
     def start( self, recursive, start_programs):
         """
@@ -131,10 +140,14 @@ class ProgramStarter:
         return None
 
     def _execute_program_script( self, program, script_key ):
-        if script_key in self.config["programs"][program]:
-            os.environ['PROGRAM']=program
-            script = self.config["programs"][program][script_key]
-            script = eval_with_env( script )
+        program_info = self.config["programs"][program]
+        if script_key in program_info:
+            envs = os.environ.copy()
+            envs['PROGRAM']=program
+            if "envs" in program_info:
+                envs.update( program_info["envs"] )
+            script = program_info[script_key]
+            script = eval_with_env( script, envs )
             logging.debug( "start to execute:%s" % script )
             return os.system( script ) == 0
         return True
@@ -179,7 +192,7 @@ class ProgramStarter:
         logging.error( "fail to load the configure file" )
         return None
 
-def eval_with_env( s ):
+def eval_with_env( s, envs ):
     n = len( s )
     i = 0
     r = ""
@@ -203,8 +216,8 @@ def eval_with_env( s ):
                     def_value = env[pos+1:].strip()
                     env = env[0:pos].strip()
                 #if environment variable exists
-                if env in os.environ:
-                    r = r + eval_with_env( os.environ[env] ) #support embded environment variable
+                if env in envs:
+                    r = r + eval_with_env( envs[env], envs ) #support embded environment variable
                 elif def_value: # set to default value if environment variable does not exist
                     r = r + def_value
                     def_value = "" #reset tht def_value to empty

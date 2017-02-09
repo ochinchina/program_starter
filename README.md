@@ -98,6 +98,51 @@ ${JAVA_HOME:/your/default/java/home}
 ```
 if the environment variable JAVA_HOME is set, the above string will be replaced with the value of JAVA_HOME enviornment variable. If JAV_HOME is not set, the above string will be "/your/default/java/home".
 
+### Where does the value of environment variable come from
+
+The environment variable comes from:
+- the environment varaible set in the shell with command "export"
+- the environment file
+- the environment settings in the configuration file
+
+#### Environment variable from shell
+
+The environment varaible exported from shell can be used in the script. So if the script is:
+```shell
+${DOCKER_RUN} --name ${PROGRAM}-1 -d ${PROGRAM} 
+```
+The referenced environment variable DOCKER_RUN in the above script can be got from the shell. So in the shell, we can simply export DOCKER_RUN:
+
+```shell
+$ export DOCKER_RUN="docker run"
+```
+#### Environment variable in the configuration file
+
+Environment can be set in the configuration file in global/program level.
+
+To set the global environment in the configuration file, the top-level element "envs" can be added.
+The program level environment should be put under the program itself with element "envs".
+
+```yaml
+programs:
+  db:
+    start: "${DOCKER_RUN} --name db-1 -d db'
+    post_start: 'sleep 10'
+    stop: 'docker stop db-1'
+    post_stop: 'docker rm db-1'
+    envs:
+       ENV_1:"this is a test environment"
+  web:
+    start: '${DOCKER_RUN} --name web-1 -d web'
+    stop: 'docker stop web-1'
+    post_stop: 'docker rm web-1'
+    depends_on:
+      - db
+envs:
+  DOCKER_RUN: "docker run"
+```
+In the above example, the DOCKER_RUN is a global environment variable and the ENV_1 under db is environment variable for "db" only.
+
 #### Environment variable file
 The environment variable can be set in the shell or can be loaded from a environment file by command line argument "-e" or "--env_file". One environment variable should be put in one line and line start with '#' will be regarded as comments and will be ignored.
 
@@ -144,6 +189,15 @@ programs:
       - db
 ```
 in the program db, the environment variable ${PROGRAM} stands for the "db" and in the web program, the ${PROGRAM} stands for the "web".
+
+### Environmnent variable priority
+
+If same environment variable name is set in different way, the higher priority environment variable will overwrite the lower priority one. The environment variable priority is listed as below ( from lowest to highest ):
+
+- environment set in shell ( lowest priority)
+- environment file
+- global environment variable setting in configuration file
+- program level environment variable setting in configuration file (highest priority)
 
 ### MIT License
 Copyright 2017 Steven Ou

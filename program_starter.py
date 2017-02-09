@@ -204,10 +204,10 @@ def eval_with_env( s ):
                     env = env[0:pos].strip()
                 #if environment variable exists
                 if env in os.environ:
-                    r = r + os.environ[env]
+                    r = r + eval_with_env( os.environ[env] ) #support embded environment variable
                 elif def_value: # set to default value if environment variable does not exist
                     r = r + def_value
-                    def_value = ""
+                    def_value = "" #reset tht def_value to empty
                 i = j + 1
         else: # for other case
             r = r + s[i]

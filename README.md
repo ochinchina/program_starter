@@ -194,10 +194,10 @@ in the program db, the environment variable ${PROGRAM} stands for the "db" and i
 
 If same environment variable name is set in different way, the higher priority environment variable will overwrite the lower priority one. The environment variable priority is listed as below ( from lowest to highest ):
 
-- environment set in shell ( lowest priority)
+- global environment variable setting in configuration file (lowest priority)
+- program level environment variable setting in configuration file
 - environment file
-- global environment variable setting in configuration file
-- program level environment variable setting in configuration file (highest priority)
+- environment set in shell ( highest priority)
 
 ### MIT License
 Copyright 2017 Steven Ou

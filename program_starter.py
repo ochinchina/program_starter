@@ -10,13 +10,14 @@ import logging
 
 class ProgramStarter:
 
-    def __init__( self, config ):
+    def __init__( self, config, file_envs ):
         if isinstance( config, str ):
             self.config=self._load_config(config)
         else:
             self.config = config
         self._update_depends_info()
-        self._update_env()
+        self._file_envs = file_envs
+        self._config_envs = self._load_config_env()
 
     def _update_depends_info( self ):
         """
@@ -29,14 +30,16 @@ class ProgramStarter:
             if 'depends_on' in self.config['programs'][program]:
                 for depend in self.config['programs'][program]['depends_on']:
                     self.config['programs'][depend]['depend_by'].append( program )
-    def _update_env( self ):
+    def _load_config_env( self ):
         """
         update the environment variable setting in the configuration file
+
+        Returns:
+            a dictionary contains the environment variables
         """
         if "envs" in self.config:
-            envs = self.config["envs"]
-            if isinstance( envs, dict ):
-                os.environ.update( envs )
+            return self.config["envs"]
+        return {}
 
     def start( self, recursive, start_programs):
         """
@@ -142,15 +145,25 @@ class ProgramStarter:
     def _execute_program_script( self, program, script_key ):
         program_info = self.config["programs"][program]
         if script_key in program_info:
-            envs = os.environ.copy()
-            envs['PROGRAM']=program
+            prog_envs = {}
             if "envs" in program_info:
-                envs.update( program_info["envs"] )
+                prog_envs.update( program_info["envs"] )
+
+            envs = self._merge_envs( self._config_envs, prog_envs, self._file_envs, os.environ )
+            envs['PROGRAM'] = program
             script = program_info[script_key]
             script = eval_with_env( script, envs )
             logging.debug( "start to execute:%s" % script )
             return os.system( script ) == 0
         return True
+
+    def _merge_envs( self, *args):
+        result = {}
+        for env in args:
+            result.update( env )
+
+        return result
+
     def _start_program( self, program):
         logging.debug( "start program:%s" % program )
         try:
@@ -228,7 +241,16 @@ def eval_with_env( s, envs ):
     return r
 
 def load_env_file( fileName ):
+    """
+    load the environment variable from file
+
+    Args:
+        fileName the name of the environment variable file
+    Returns:
+        a dictionary contains the environment variable: key is the env name and value is the value of env var
+    """
     logging.info( "load environment variable file:%s" % fileName )
+    result = {}
     try:
         with open( fileName ) as f:
             for line in f:
@@ -240,9 +262,11 @@ def load_env_file( fileName ):
                     if pos != -1:
                         name = line[0:pos].strip()
                         value = line[pos+1:].strip()
-                        os.environ[name] = value
+                        result[name] = value
     except Exception as ex:
         logging.error( "get exception when loading environment file %s:%r" %( fileName, ex ) )
+    return result
+
 if __name__ == "__main__":
     logging.basicConfig( filename="program_starter.log", level=logging.DEBUG )
     parser = argparse.ArgumentParser(description='start/stop a group of depend program from configuration file')
@@ -252,10 +276,11 @@ if __name__ == "__main__":
     parser.add_argument( "-r", "--recursive", action='store_true', default=False, help = "recursively start/stop programs" )
     parser.add_argument( "-e", "--env_file", help = "environment file" )
     args = parser.parse_args()
+    file_env = {}
     if args.env_file:
-        load_env_file( args.env_file )
+        file_env = load_env_file( args.env_file )
 
-    starter = ProgramStarter( args.config_file )
+    starter = ProgramStarter( args.config_file, file_env )
     if args.command == 'start':
         starter.start( args.recursive, args.program )
     else:
